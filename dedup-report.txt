@@ -1,0 +1,180 @@
+============================================================
+ROM Deduplicator - DRY RUN
+============================================================
+
+Input:  E:\david\Emulation\Easyroms
+Output: E:\david\Emulation\CleanRoms
+Systems: gbc
+Preferred regions: USA, World, Europe, Australia
+Preferred languages: En, en
+Media types: images, videos
+
+Found 1 system(s) to process: gbc
+
+------------------------------------------------------------
+System: gbc
+------------------------------------------------------------
+  Found 2,099 ROM files
+  Loaded 2099 entries from gamelist.xml
+  Calculating file sizes...
+
+  KEEP (main folder): 613
+    - 007 - The World Is Not Enough (USA, Europe).zip
+    - 10-Pin Bowling (USA) (Rumble Version).zip
+    - 102 Dalmatians - Puppies to the Rescue (USA, Europe).zip
+    - 1942 (USA, Europe).zip
+    - 3-D Ultra Pinball - Thrillride (USA) (Rumble Version).zip
+    - 3D Pocket Pool (Europe) (En,Fr,De,Es,It,Nl).zip
+    - Test Drive Off-Road 3 (USA) (Rumble Version) (SGB Enhanced).zip
+    - 720 Degrees (USA, Europe).zip
+    - Action Man - Search for Base X (USA, Europe).zip
+    - Adventures of Elmo in Grouchland, The (USA).zip
+    ... and 603 more
+
+  REGIONAL (subfolders): 578
+    Spain: 10
+      - 102 Dalmatas - Cachorros Al Rescate (Spain).zip
+      - Barbie - Aventura Submarina (Spain) (GB Compatible).zip
+      - Dragon Ball Z - Guerreros de Leyenda (Spain).zip
+      - Pokemon - Edicion Cristal (Spain).zip
+      - Pokemon - Edicion Oro (Spain) (SGB Enhanced) (GB Compatible).zip
+      ... and 5 more
+    France: 29
+      - 102 Dalmatiens a la Rescousse, Les (France).zip
+      - Barbie - Chasse au Tresor Sous-Marine (France) (GB Compatible).zip
+      - Bugs Bunny et le Chateau des Catastrophes (France).zip
+      - Aventures de Buzz l'Eclair, Les (France).zip
+      - Diva Starz (France).zip
+      ... and 24 more
+    Germany: 42
+      - 102 Dalmatiner (Germany).zip
+      - Barbie - Meeres Abenteuer (Germany) (GB Compatible).zip
+      - Captain Buzz Lightyear - Star Command (Germany).zip
+      - Carmageddon - Carpocalypse Now (Germany).zip
+      - Diva Starz (Germany).zip
+      ... and 37 more
+    Japan: 482
+      - AirForce Delta (Japan).zip
+      - Other Life - Azure Dreams GB (Japan) (SGB Enhanced) (GB Compatible).zip
+      - Backgammon (Japan) (GB Compatible).zip
+      - Puzz Loop (Japan) (GB Compatible).zip
+      - Batman Beyond - Return of the Joker (Japan) (NP).zip
+      ... and 477 more
+    Italy: 6
+      - Barbie - Avventure nell'Oceano (Italy) (GB Compatible).zip
+      - Dragon Ball Z - I Leggendari Super Guerrieri (Italy).zip
+      - Pokemon - Versione Cristallo (Italy).zip
+      - Pokemon - Versione Oro (Italy) (SGB Enhanced) (GB Compatible).zip
+      - Pokemon - Versione Argento (Italy) (SGB Enhanced) (GB Compatible).zip
+      ... and 1 more
+    Netherlands: 1
+      - Barbie - Diepzee Avontuur (Netherlands) (GB Compatible).zip
+    Brazil: 1
+      - Hype - The Time Quest (Brazil).zip
+    Korea: 3
+      - Pocket Monsters Geum (Korea).zip
+      - Pocket Monsters Eun (Korea).zip
+      - Bomberman Selection (Korea).zip
+    Unknown: 1
+      - Tobu Tobu Girl Deluxe.zip
+    Taiwan: 2
+      - 31 in 1 (Taiwan) (31B-001, Sachen) (Unl).zip
+      - Rocman X Gold + 4 in 1 (Taiwan) (1B-002, 4B-003, Sachen) (Unl).zip
+    China: 1
+      - Tezhong Budui 2 - Jidi (China) (Li Cheng) (Unl).zip
+
+  PROTOTYPES: 65
+    - Cannon Fodder (Europe) (En,Fr,De,Es,It) (Beta).zip
+    - Carl Lewis Athletics 2000 (Europe) (En,Fr,De,Es,It,Nl) (Beta).zip
+    - Dinosaur (USA) (Beta).zip
+    - Donkey Kong Country (USA, Europe) (En,Fr,De,Es,It) (Sample).zip
+    - F-1 World Grand Prix (Europe) (Beta).zip
+    - F1 Racing Championship (Europe) (En,Fr,De,Es,It) (Beta) (February, 2000).zip
+    - Flintstones, The - Burgertime in Bedrock (Europe) (En,Fr,De,Es,It) (Beta).zip
+    - Gift (Europe) (Sample).zip
+    - Gremlins - Unleashed (Europe) (En,Fr,De,Es,It,Pt) (Beta).zip
+    - Hello Kitty's Cube Frenzy (Europe) (Proto).zip
+    ... and 55 more
+
+  COLLECTIONS: 56
+    Featured Games: 56
+
+  DUPLICATES REMOVED: 791
+    - 007 - The World Is Not Enough (USA, Europe).zip
+    - 10-Pin Bowling (USA) (Rumble Version).zip
+    - 10-Pin Bowling (Europe).zip
+    - 102 Dalmatians - Puppies to the Rescue (USA, Europe).zip
+    - 1942 (USA, Europe).zip
+    - 3-D Ultra Pinball - Thrillride (USA) (Rumble Version).zip
+    - 3D Pocket Pool (Europe) (En,Fr,De,Es,It,Nl).zip
+    - Test Drive Off-Road 3 (USA) (Rumble Version) (SGB Enhanced) (GB Compatible).zip
+    - 4x4 World Trophy (Europe) (En,Fr,De,Es,It).zip
+    - 4x4 World Trophy (Europe) (En,Fr,De,Es,It) (GB Compatible).zip
+    ... and 781 more
+
+  Summary for gbc:
+    Total ROMs: 2,099
+    Unique titles: 1,001
+    Kept: 613
+    Regional: 578
+    Prototypes: 65
+    Collections: 56
+    Duplicates removed: 791
+
+  Size breakdown:
+    Input total:  10.57 GB
+    Output total: 5.94 GB
+    Savings:      4.63 GB (43.8%)
+
+
+============================================================
+FINAL SUMMARY
+============================================================
+
+Systems processed: 1
+Total ROMs scanned: 2,099
+Unique titles: 1,001
+
+Kept (main): 613
+Regional: 578
+Prototypes: 65
+Collections: 56
+Duplicates removed: 791
+
+Output ROMs: 1,312 (37.7% reduction)
+
+NOTE: This was a DRY RUN. No files were copied.
+Run with dryRun: false to copy files.
+
+============================================================
+SIZE SUMMARY
+============================================================
+
+Input Size (all scanned files):
+  ROMs:      1016.37 MB
+  Images:     642.45 MB
+  Videos:       8.95 GB
+  Manuals:          0 B
+  ─────────────────────
+  Total:       10.57 GB
+
+Output Size (files to copy):
+  ROMs:       676.22 MB
+  Images:     394.68 MB
+  Videos:       4.89 GB
+  Manuals:          0 B
+  ─────────────────────
+  Total:        5.94 GB
+
+Space Savings: 4.63 GB (43.8% reduction)
+
+SD Card Compatibility:
+  [✓] Fits on 8GB SD card
+  [✓] Fits on 16GB SD card
+  [✓] Fits on 32GB SD card
+  [✓] Fits on 64GB SD card
+  [✓] Fits on 128GB SD card
+
+Breakdown by system:
+
+  gbc             Kept:   613, Regional:   578, Proto:   65, Removed:   791
