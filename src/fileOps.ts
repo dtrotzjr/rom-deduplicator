@@ -426,7 +426,7 @@ export async function calculateDestinationSizes(
  */
 export function calculateSizeStats(
   destinations: RomDestination[],
-  includeTypes: ("main" | "regional" | "prototype" | "collection" | "duplicate")[]
+  includeTypes: ("main" | "regional" | "prototype" | "hack" | "collection" | "duplicate")[]
 ): SizeStats {
   const stats = emptySizeStats();
 

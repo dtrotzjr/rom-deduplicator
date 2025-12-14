@@ -90,6 +90,9 @@ const KNOWN_LANGUAGES = [
 /** Tags that indicate prototype/beta/demo */
 const PROTOTYPE_TAGS = ["Proto", "Beta", "Demo", "Sample", "Kiosk", "Debug", "Preview"];
 
+/** Tags that indicate hack/pirate/bootleg/fan modification */
+const HACK_TAGS = ["Hack", "Pirate", "Bootleg", "Cracked", "Trained", "Trump"];
+
 /** Tags that indicate special versions (not duplicates) */
 const SPECIAL_TAGS = [
   "SGB Enhanced",
@@ -260,6 +263,15 @@ function checkPrototype(groups: string[]): boolean {
 }
 
 /**
+ * Check if any group indicates a hack/pirate/bootleg
+ */
+function checkHack(groups: string[]): boolean {
+  return groups.some((g) =>
+    HACK_TAGS.some((t) => g.toLowerCase().includes(t.toLowerCase()))
+  );
+}
+
+/**
  * Extract special tags from groups
  */
 function extractTags(parenGroups: string[], bracketGroups: string[]): string[] {
@@ -405,6 +417,7 @@ export function parseRomFilename(
     
   const revision = extractRevision(allParenGroups);
   const isPrototype = checkPrototype(allParenGroups);
+  const isHack = checkHack(allParenGroups) || checkHack(allBracketGroups);
   const tags = extractTags(allParenGroups, allBracketGroups);
 
   return {
@@ -418,6 +431,7 @@ export function parseRomFilename(
     tags,
     revision,
     isPrototype,
+    isHack,
     gamelistId: metadata?.id,
     metadata,
     collection,

@@ -64,6 +64,7 @@ async function processSystem(
         kept: 0,
         regional: 0,
         prototypes: 0,
+        hacks: 0,
         duplicatesRemoved: 0,
         collections: 0,
         inputSize: emptySizeStats(),
@@ -179,8 +180,8 @@ async function processSystem(
   await calculateDestinationSizes(destinations, inputSystemFolder, config.mediaTypes);
 
   // Calculate input and output sizes
-  const inputSize = calculateSizeStats(destinations, ["main", "regional", "prototype", "collection", "duplicate"]);
-  const outputSize = calculateSizeStats(destinations, ["main", "regional", "prototype", "collection"]);
+  const inputSize = calculateSizeStats(destinations, ["main", "regional", "prototype", "hack", "collection", "duplicate"]);
+  const outputSize = calculateSizeStats(destinations, ["main", "regional", "prototype", "hack", "collection"]);
 
   // Write destination details
   writeDestinations(writer, destinations, true);

@@ -110,6 +110,8 @@ export interface RomEntry {
   revision: number;
   /** Is this a prototype/beta/demo? */
   isPrototype: boolean;
+  /** Is this a hack/pirate/bootleg/fan translation? */
+  isHack: boolean;
   /** Game ID from gamelist.xml */
   gamelistId?: string;
   /** Full metadata from gamelist.xml */
@@ -128,6 +130,8 @@ export interface DeduplicationResult {
   regional: Map<string, RomEntry[]>;
   /** Prototype/beta/demo ROMs */
   prototypes: RomEntry[];
+  /** Hack/pirate/bootleg ROMs */
+  hacks: RomEntry[];
   /** ROMs that are pure duplicates to be removed */
   duplicates: RomEntry[];
 }
@@ -160,6 +164,8 @@ export interface SystemStats {
   regional: number;
   /** Prototypes/betas */
   prototypes: number;
+  /** Hacks/pirates/bootlegs */
+  hacks: number;
   /** Pure duplicates removed */
   duplicatesRemoved: number;
   /** ROMs from collections */
@@ -183,7 +189,7 @@ export interface RomDestination {
   /** The ROM entry */
   rom: RomEntry;
   /** Destination type */
-  type: "main" | "regional" | "prototype" | "collection" | "duplicate";
+  type: "main" | "regional" | "prototype" | "hack" | "collection" | "duplicate";
   /** Relative output path from system folder */
   outputPath: string;
   /** Region folder name (for regional type) */

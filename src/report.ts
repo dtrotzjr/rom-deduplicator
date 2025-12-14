@@ -137,6 +137,7 @@ export function writeDestinations(
   const main = destinations.filter((d) => d.type === "main");
   const regional = destinations.filter((d) => d.type === "regional");
   const prototypes = destinations.filter((d) => d.type === "prototype");
+  const hacks = destinations.filter((d) => d.type === "hack");
   const collections = destinations.filter((d) => d.type === "collection");
   const duplicates = destinations.filter((d) => d.type === "duplicate");
 
@@ -194,6 +195,20 @@ export function writeDestinations(
     }
   }
 
+  // Write HACKS section
+  if (hacks.length > 0) {
+    writer.writeLine("");
+    writer.writeLine(`  HACKS/PIRATES: ${formatNumber(hacks.length)}`);
+    if (verbose) {
+      for (const dest of hacks.slice(0, 10)) {
+        writer.writeLine(`    - ${dest.rom.filename}`);
+      }
+      if (hacks.length > 10) {
+        writer.writeLine(`    ... and ${hacks.length - 10} more`);
+      }
+    }
+  }
+
   // Write COLLECTIONS section
   if (collections.length > 0) {
     writer.writeLine("");
@@ -243,6 +258,7 @@ export function writeSystemSummary(
   writer.writeLine(`    Kept: ${formatNumber(stats.kept)}`);
   writer.writeLine(`    Regional: ${formatNumber(stats.regional)}`);
   writer.writeLine(`    Prototypes: ${formatNumber(stats.prototypes)}`);
+  writer.writeLine(`    Hacks/Pirates: ${formatNumber(stats.hacks)}`);
   writer.writeLine(`    Collections: ${formatNumber(stats.collections)}`);
   writer.writeLine(`    Duplicates removed: ${formatNumber(stats.duplicatesRemoved)}`);
 
@@ -280,6 +296,7 @@ export function writeFinalSummary(
     kept: 0,
     regional: 0,
     prototypes: 0,
+    hacks: 0,
     collections: 0,
     duplicatesRemoved: 0,
   };
@@ -294,6 +311,7 @@ export function writeFinalSummary(
     totals.kept += stats.kept;
     totals.regional += stats.regional;
     totals.prototypes += stats.prototypes;
+    totals.hacks += stats.hacks;
     totals.collections += stats.collections;
     totals.duplicatesRemoved += stats.duplicatesRemoved;
 
@@ -322,11 +340,12 @@ export function writeFinalSummary(
   writer.writeLine(`Kept (main): ${formatNumber(totals.kept)}`);
   writer.writeLine(`Regional: ${formatNumber(totals.regional)}`);
   writer.writeLine(`Prototypes: ${formatNumber(totals.prototypes)}`);
+  writer.writeLine(`Hacks/Pirates: ${formatNumber(totals.hacks)}`);
   writer.writeLine(`Collections: ${formatNumber(totals.collections)}`);
   writer.writeLine(`Duplicates removed: ${formatNumber(totals.duplicatesRemoved)}`);
   writer.writeLine("");
 
-  const outputCount = totals.kept + totals.regional + totals.prototypes + totals.collections;
+  const outputCount = totals.kept + totals.regional + totals.prototypes + totals.hacks + totals.collections;
   const reduction = totals.totalRoms > 0
     ? ((totals.duplicatesRemoved / totals.totalRoms) * 100).toFixed(1)
     : "0";
@@ -430,6 +449,7 @@ export function writeSystemBreakdown(
         `Kept: ${stats.kept.toString().padStart(5)}, ` +
         `Regional: ${stats.regional.toString().padStart(5)}, ` +
         `Proto: ${stats.prototypes.toString().padStart(4)}, ` +
+        `Hacks: ${stats.hacks.toString().padStart(4)}, ` +
         `Removed: ${stats.duplicatesRemoved.toString().padStart(5)}`
     );
   }

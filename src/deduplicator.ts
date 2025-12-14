@@ -197,20 +197,24 @@ export function selectWinner(
   duplicates: RomEntry[],
   config: Config
 ): DeduplicationResult {
-  // Separate prototypes/betas
-  const prototypes = duplicates.filter((r) => r.isPrototype);
-  const regular = duplicates.filter((r) => !r.isPrototype);
+  // Separate prototypes/betas and hacks/pirates
+  const prototypes = duplicates.filter((r) => r.isPrototype && !r.isHack);
+  const hacks = duplicates.filter((r) => r.isHack && !r.isPrototype);
+  const prototypeHacks = duplicates.filter((r) => r.isPrototype && r.isHack); // Goes to hacks
+  const allHacks = [...hacks, ...prototypeHacks];
+  const regular = duplicates.filter((r) => !r.isPrototype && !r.isHack);
 
   // Filter out completely ignored ROMs
   const considered = regular.filter((r) => !shouldIgnore(r, config));
   const ignored = regular.filter((r) => shouldIgnore(r, config));
 
   if (considered.length === 0) {
-    // All regular ROMs are ignored, but keep prototypes if any
+    // All regular ROMs are ignored, but keep prototypes/hacks if any
     return {
-      winner: regular[0] || prototypes[0], // Fallback to first available
+      winner: regular[0] || prototypes[0] || allHacks[0], // Fallback to first available
       regional: new Map(),
       prototypes,
+      hacks: allHacks,
       duplicates: ignored,
     };
   }
@@ -253,6 +257,7 @@ export function selectWinner(
     winner,
     regional,
     prototypes,
+    hacks: allHacks,
     duplicates: duplicatesList,
   };
 }
@@ -310,6 +315,15 @@ export function resultToDestinations(
     });
   }
 
+  // Hacks go to hacks folder
+  for (const rom of result.hacks) {
+    destinations.push({
+      rom,
+      type: "hack",
+      outputPath: `hacks/${rom.filename}`,
+    });
+  }
+
   // Duplicates are marked but not copied
   for (const rom of result.duplicates) {
     destinations.push({
@@ -336,6 +350,7 @@ export function deduplicateSystem(
     kept: number;
     regional: number;
     prototypes: number;
+    hacks: number;
     duplicatesRemoved: number;
     collections: number;
   };
@@ -367,6 +382,7 @@ export function deduplicateSystem(
   let kept = 0;
   let regional = 0;
   let prototypes = 0;
+  let hacks = 0;
   let duplicatesRemoved = 0;
 
   for (const [, group] of groups) {
@@ -382,6 +398,14 @@ export function deduplicateSystem(
           outputPath: "",
         });
         duplicatesRemoved++;
+      } else if (rom.isHack) {
+        // Hacks go to hacks folder
+        destinations.push({
+          rom,
+          type: "hack",
+          outputPath: `hacks/${rom.filename}`,
+        });
+        hacks++;
       } else if (rom.isPrototype) {
         destinations.push({
           rom,
@@ -415,24 +439,27 @@ export function deduplicateSystem(
       destinations.push(...groupDests);
 
       // Count by type
-      for (const dest of groupDests) {
-        switch (dest.type) {
-          case "main":
-            kept++;
-            break;
-          case "regional":
-            regional++;
-            break;
-          case "prototype":
-            prototypes++;
-            break;
-          case "duplicate":
-            duplicatesRemoved++;
-            break;
+        for (const dest of groupDests) {
+          switch (dest.type) {
+            case "main":
+              kept++;
+              break;
+            case "regional":
+              regional++;
+              break;
+            case "prototype":
+              prototypes++;
+              break;
+            case "hack":
+              hacks++;
+              break;
+            case "duplicate":
+              duplicatesRemoved++;
+              break;
+          }
         }
       }
     }
-  }
 
   return {
     destinations,
@@ -442,6 +469,7 @@ export function deduplicateSystem(
       kept,
       regional,
       prototypes,
+      hacks,
       duplicatesRemoved,
       collections: collectionRoms.length,
     },
