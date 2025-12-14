@@ -177,12 +177,22 @@ function extractBracketGroups(filename: string): string[] {
 }
 
 /**
- * Check if a string is a known region
+ * Check if a string is a known region or contains a known region
  */
 function isRegion(str: string): boolean {
-  return KNOWN_REGIONS.some(
-    (r) => r.toLowerCase() === str.toLowerCase() || str.toLowerCase().includes(r.toLowerCase())
-  );
+  const lowerStr = str.toLowerCase();
+  return KNOWN_REGIONS.some((r) => {
+    const lowerRegion = r.toLowerCase();
+    // Exact match
+    if (lowerStr === lowerRegion) return true;
+    // Region followed by space (e.g., "World 900227", "World, set 1")
+    if (lowerStr.startsWith(lowerRegion + " ")) return true;
+    // Region in comma-separated list
+    if (lowerStr.includes(lowerRegion + ",") || lowerStr.includes(", " + lowerRegion)) return true;
+    // Region at end after comma
+    if (lowerStr.endsWith(", " + lowerRegion)) return true;
+    return false;
+  });
 }
 
 /**
@@ -205,6 +215,18 @@ function parseRegions(group: string): string[] {
     const exactMatch = KNOWN_REGIONS.find((r) => r.toLowerCase() === part.toLowerCase());
     if (exactMatch) {
       regions.push(exactMatch);
+      continue;
+    }
+    
+    // Check if part starts with a known region (e.g., "World 900227" starts with "World")
+    // This handles MAME naming conventions with dates
+    for (const region of KNOWN_REGIONS) {
+      // Match "Region" followed by space and digits (date code) or other info
+      const pattern = new RegExp(`^${region}(?:\\s+\\d|\\s*,|\\s*$)`, "i");
+      if (pattern.test(part)) {
+        regions.push(region);
+        break;
+      }
     }
   }
 
