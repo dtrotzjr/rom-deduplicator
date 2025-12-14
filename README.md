@@ -6,6 +6,7 @@ A TypeScript Node.js CLI tool that identifies duplicate ROMs across systems, kee
 ## Features
 
 - **Smart Deduplication**: Uses gamelist.xml game IDs when available, falls back to fuzzy name matching
+- **ScreenScraper Integration**: Optionally fetch metadata for games missing from gamelist.xml
 - **Region/Language Preferences**: Configurable priority for USA, Europe, English, etc.
 - **Organized Output**: 
   - Preferred versions in main folder
@@ -88,6 +89,44 @@ Create a `config.json` file:
 | `mediaTypes` | string[] | Media to copy: "images", "videos", "manual" |
 | `reportFile` | string | Optional report output file |
 | `dryRun` | boolean | If true, simulate without copying |
+| `screenScraper` | object | Optional ScreenScraper API configuration |
+
+### ScreenScraper Configuration (Optional)
+
+If ROMs are missing from your gamelist.xml, you can enable ScreenScraper API integration to fetch metadata automatically. This requires a [ScreenScraper](https://www.screenscraper.fr/) account and developer credentials.
+
+```json
+{
+  "screenScraper": {
+    "enabled": true,
+    "devId": "your_dev_id",
+    "devPassword": "your_dev_password",
+    "userId": "your_screenscraper_username",
+    "userPassword": "your_screenscraper_password",
+    "downloadMedia": false,
+    "mediaTypes": ["screenshot", "video"]
+  }
+}
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `enabled` | boolean | Enable ScreenScraper API lookups (default: false) |
+| `devId` | string | Developer ID for API access (required when enabled) |
+| `devPassword` | string | Developer password for API access (required when enabled) |
+| `userId` | string | Your ScreenScraper username (optional, improves rate limits) |
+| `userPassword` | string | Your ScreenScraper password (optional) |
+| `downloadMedia` | boolean | Download media files from ScreenScraper (default: false) |
+| `mediaTypes` | string[] | Media types to download: "screenshot", "box2d", "box3d", "wheel", "video" |
+
+**How it works:**
+1. ROMs without gamelist.xml entries are identified
+2. Each ROM is looked up by file hash (MD5/SHA1) for exact matching
+3. If no hash match, falls back to game name search
+4. Fetched metadata is used for deduplication and included in output gamelist.xml
+5. If `downloadMedia` is enabled, images/videos are downloaded to the media folder
+
+**Note:** ScreenScraper has rate limits. The tool automatically enforces delays between API calls. Large collections may take significant time to process.
 
 ## Output Structure
 
