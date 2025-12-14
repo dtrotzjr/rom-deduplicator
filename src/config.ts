@@ -6,6 +6,7 @@ import fs from "fs/promises";
 import path from "path";
 import type { Config, MediaType, SSMediaType } from "./types.js";
 
+
 /** Default configuration values */
 const DEFAULT_CONFIG: Partial<Config> = {
   systems: "all",
