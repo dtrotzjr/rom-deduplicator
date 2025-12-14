@@ -8,6 +8,7 @@ import path from "path";
 
 /** Known region identifiers */
 const KNOWN_REGIONS = [
+  // Full names
   "USA",
   "Europe",
   "Japan",
@@ -36,14 +37,80 @@ const KNOWN_REGIONS = [
   "Mexico",
   "Argentina",
   "UK",
-  // Short codes sometimes used
+  // MAME/Arcade abbreviations
+  "Euro",
+  "Jpn",
+  "Kor",
+  "Asi",
+  "Aus",
+  "Bra",
+  "Chi",
+  "Fra",
+  "Ger",
+  "Gre",
+  "Hkg",
+  "Ita",
+  "Lat",      // Latin America
+  "Mex",
+  "Nld",
+  "Nor",
+  "Por",
+  "Rus",
+  "Spa",
+  "Swe",
+  "Tai",
+  "Tha",      // Thailand
+  "Twn",
+  // Common short codes
   "EU",
   "US",
   "JP",
   "J",
   "U",
   "E",
+  "W",        // World abbreviation
+  // Special patterns (checked as phrases)
+  "Chinese",
+  "PT-BR",    // Brazilian Portuguese
 ];
+
+/** Region aliases - map variations to canonical names */
+const REGION_ALIASES: Record<string, string> = {
+  "chinese": "China",
+  "chinese version": "China",
+  "pt-br": "Brazil",
+  "euro": "Europe",
+  "jpn": "Japan",
+  "kor": "Korea",
+  "asi": "Asia",
+  "aus": "Australia",
+  "bra": "Brazil",
+  "chi": "China",
+  "fra": "France",
+  "ger": "Germany",
+  "gre": "Greece",
+  "hkg": "Hong Kong",
+  "ita": "Italy",
+  "lat": "Latin America",
+  "mex": "Mexico",
+  "nld": "Netherlands",
+  "nor": "Norway",
+  "por": "Portugal",
+  "rus": "Russia",
+  "spa": "Spain",
+  "swe": "Sweden",
+  "tai": "Taiwan",
+  "tha": "Thailand",
+  "twn": "Taiwan",
+  "eu": "Europe",
+  "us": "USA",
+  "jp": "Japan",
+  "j": "Japan",
+  "u": "USA",
+  "e": "Europe",
+  "w": "World",
+  "uk": "Europe",
+};
 
 /** Known language codes */
 const KNOWN_LANGUAGES = [
@@ -91,7 +158,7 @@ const KNOWN_LANGUAGES = [
 const PROTOTYPE_TAGS = ["Proto", "Beta", "Demo", "Sample", "Kiosk", "Debug", "Preview"];
 
 /** Tags that indicate hack/pirate/bootleg/fan modification */
-const HACK_TAGS = ["Hack", "Pirate", "Bootleg", "Cracked", "Trained", "Trump"];
+const HACK_TAGS = ["Hack", "Pirate", "Bootleg", "Cracked", "Trained", "Trump", "bootleg"];
 
 /** Tags that indicate special versions (not duplicates) */
 const SPECIAL_TAGS = [
@@ -181,6 +248,12 @@ function extractBracketGroups(filename: string): string[] {
  */
 function isRegion(str: string): boolean {
   const lowerStr = str.toLowerCase();
+  
+  // Check for phrase patterns in aliases (e.g., "Chinese version")
+  for (const alias of Object.keys(REGION_ALIASES)) {
+    if (lowerStr.includes(alias)) return true;
+  }
+  
   return KNOWN_REGIONS.some((r) => {
     const lowerRegion = r.toLowerCase();
     // Exact match
@@ -204,17 +277,35 @@ function isLanguageGroup(str: string): boolean {
 }
 
 /**
+ * Normalize a region to its canonical form
+ */
+function normalizeRegion(region: string): string {
+  const lower = region.toLowerCase();
+  return REGION_ALIASES[lower] || region;
+}
+
+/**
  * Parse regions from a parenthesized group
  */
 function parseRegions(group: string): string[] {
   const regions: string[] = [];
+  const lowerGroup = group.toLowerCase();
+  
+  // Check for phrase patterns first (e.g., "Chinese version")
+  for (const [alias, canonical] of Object.entries(REGION_ALIASES)) {
+    if (lowerGroup.includes(alias)) {
+      regions.push(canonical);
+      return regions; // Return early for phrase matches
+    }
+  }
+  
   const parts = group.split(",").map((s) => s.trim());
 
   for (const part of parts) {
     // Check for exact match first
     const exactMatch = KNOWN_REGIONS.find((r) => r.toLowerCase() === part.toLowerCase());
     if (exactMatch) {
-      regions.push(exactMatch);
+      regions.push(normalizeRegion(exactMatch));
       continue;
     }
     
@@ -222,15 +313,15 @@ function parseRegions(group: string): string[] {
     // This handles MAME naming conventions with dates
     for (const region of KNOWN_REGIONS) {
       // Match "Region" followed by space and digits (date code) or other info
-      const pattern = new RegExp(`^${region}(?:\\s+\\d|\\s*,|\\s*$)`, "i");
+      const pattern = new RegExp(`^${region}(?:\\s+\\d|\\s+set|\\s*,|\\s*$)`, "i");
       if (pattern.test(part)) {
-        regions.push(region);
+        regions.push(normalizeRegion(region));
         break;
       }
     }
   }
 
-  return regions;
+  return [...new Set(regions)]; // Remove duplicates
 }
 
 /**
@@ -472,8 +563,8 @@ export function getPrimaryRegion(rom: RomEntry): string {
   if (rom.regions.length === 1) {
     return rom.regions[0];
   }
-  // If multiple regions, check for mixed
-  const preferredOrder = ["USA", "World", "Europe", "Australia", "Japan"];
+  // If multiple regions, check for preferred order
+  const preferredOrder = ["USA", "World", "Europe", "Australia", "Japan", "Asia", "Brazil", "China", "Korea"];
   for (const region of preferredOrder) {
     if (rom.regions.includes(region)) {
       return region;
