@@ -321,6 +321,51 @@ export function normalizeName(name: string): string {
 }
 
 /**
+ * Extract region and language info from a source string (filename or metadata name)
+ */
+function extractRegionsAndLanguages(source: string): { regions: string[]; languages: string[] } {
+  const parenGroups = extractParenGroups(source);
+  const regions: string[] = [];
+  const languages: string[] = [];
+
+  for (const group of parenGroups) {
+    // Skip groups that look like dates (YYMMDD format common in MAME)
+    if (/^\d{6}$/.test(group.trim())) {
+      continue;
+    }
+    
+    // Check if it's a pure language group (En,Fr,De)
+    if (isLanguageGroup(group)) {
+      languages.push(...parseLanguages(group));
+    }
+    // Check if it contains regions
+    else if (isRegion(group)) {
+      const parsedRegions = parseRegions(group);
+      regions.push(...parsedRegions);
+      // Also check for embedded languages
+      const parts = group.split(",").map((s) => s.trim());
+      for (const part of parts) {
+        // Skip parts that look like dates
+        if (/^\d{6}$/.test(part)) {
+          continue;
+        }
+        if (!isRegion(part)) {
+          const lang = KNOWN_LANGUAGES.find((l) => l.toLowerCase() === part.toLowerCase());
+          if (lang) {
+            languages.push(lang);
+          }
+        }
+      }
+    }
+  }
+
+  return {
+    regions: [...new Set(regions)],
+    languages: [...new Set(languages)],
+  };
+}
+
+/**
  * Parse a ROM filename into a structured RomEntry
  */
 export function parseRomFilename(
@@ -334,37 +379,33 @@ export function parseRomFilename(
   const parenGroups = extractParenGroups(filename);
   const bracketGroups = extractBracketGroups(filename);
 
-  // Extract regions and languages
-  const regions: string[] = [];
-  const languages: string[] = [];
+  // Extract regions and languages from filename first
+  let { regions, languages } = extractRegionsAndLanguages(filename);
 
-  for (const group of parenGroups) {
-    // Check if it's a pure language group (En,Fr,De)
-    if (isLanguageGroup(group)) {
-      languages.push(...parseLanguages(group));
-    }
-    // Check if it contains regions
-    else if (isRegion(group)) {
-      const parsedRegions = parseRegions(group);
-      regions.push(...parsedRegions);
-      // Also check for embedded languages
-      const parts = group.split(",").map((s) => s.trim());
-      for (const part of parts) {
-        if (!isRegion(part)) {
-          const lang = KNOWN_LANGUAGES.find((l) => l.toLowerCase() === part.toLowerCase());
-          if (lang) {
-            languages.push(lang);
-          }
-        }
-      }
+  // If no regions found in filename, try the gamelist metadata name
+  if (regions.length === 0 && metadata?.name) {
+    const fromMetadata = extractRegionsAndLanguages(metadata.name);
+    regions = fromMetadata.regions;
+    // Also grab languages from metadata if we didn't find any
+    if (languages.length === 0) {
+      languages = fromMetadata.languages;
     }
   }
 
   const baseName = extractBaseName(filename);
   const normalizedName = normalizeName(baseName);
-  const revision = extractRevision(parenGroups);
-  const isPrototype = checkPrototype(parenGroups);
-  const tags = extractTags(parenGroups, bracketGroups);
+  
+  // Also check metadata name for prototype/revision tags
+  const allParenGroups = metadata?.name 
+    ? [...parenGroups, ...extractParenGroups(metadata.name)]
+    : parenGroups;
+  const allBracketGroups = metadata?.name
+    ? [...bracketGroups, ...extractBracketGroups(metadata.name)]
+    : bracketGroups;
+    
+  const revision = extractRevision(allParenGroups);
+  const isPrototype = checkPrototype(allParenGroups);
+  const tags = extractTags(allParenGroups, allBracketGroups);
 
   return {
     filename,
@@ -372,8 +413,8 @@ export function parseRomFilename(
     relativePath,
     baseName,
     normalizedName,
-    regions: [...new Set(regions)],
-    languages: [...new Set(languages)],
+    regions,
+    languages,
     tags,
     revision,
     isPrototype,
