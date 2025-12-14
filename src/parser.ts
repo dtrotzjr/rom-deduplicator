@@ -175,6 +175,15 @@ const SPECIAL_TAGS = [
   "DSi Enhanced",
 ];
 
+/** Console/system identifiers to ignore when parsing regions */
+const CONSOLE_IDENTIFIERS = new Set([
+  "gb", "gbc", "gba", "nes", "snes", "sfc", "sms", "gg", "md", "gen",
+  "pce", "tg16", "ngp", "ngc", "n64", "nds", "3ds", "psx", "ps2", "psp",
+  "wii", "gc", "dc", "ss", "sat", "cdi", "jag", "lynx", "ws", "wsc",
+  "a26", "a52", "a78", "col", "int", "o2", "vb", "sg1000", "msx", "x68k",
+  "pc98", "fds", "arcade", "mame", "fbneo", "cps1", "cps2", "cps3", "neogeo",
+]);
+
 /** Common ROM file extensions */
 const ROM_EXTENSIONS = new Set([
   ".zip",
@@ -446,16 +455,29 @@ export function normalizeName(name: string): string {
 }
 
 /**
+ * Check if a string is a console/system identifier to ignore
+ */
+function isConsoleIdentifier(str: string): boolean {
+  return CONSOLE_IDENTIFIERS.has(str.toLowerCase().trim());
+}
+
+/**
  * Extract region and language info from a source string (filename or metadata name)
  */
 function extractRegionsAndLanguages(source: string): { regions: string[]; languages: string[] } {
   const parenGroups = extractParenGroups(source);
+  const bracketGroups = extractBracketGroups(source);
   const regions: string[] = [];
   const languages: string[] = [];
 
+  // Process parenthesized groups
   for (const group of parenGroups) {
     // Skip groups that look like dates (YYMMDD format common in MAME)
     if (/^\d{6}$/.test(group.trim())) {
+      continue;
+    }
+    // Skip console identifiers like (gb), (nes), etc.
+    if (isConsoleIdentifier(group)) {
       continue;
     }
     
@@ -481,6 +503,19 @@ function extractRegionsAndLanguages(source: string): { regions: string[]; langua
           }
         }
       }
+    }
+  }
+
+  // Also process bracketed groups for regions (e.g., [US], [EU], [JP])
+  for (const group of bracketGroups) {
+    // Skip console identifiers
+    if (isConsoleIdentifier(group)) {
+      continue;
+    }
+    // Check if it's a known region
+    if (isRegion(group)) {
+      const parsedRegions = parseRegions(group);
+      regions.push(...parsedRegions);
     }
   }
 

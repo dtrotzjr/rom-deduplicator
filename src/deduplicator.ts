@@ -51,6 +51,22 @@ export function calculateScore(rom: RomEntry, config: Config): number {
   // Revision scoring (higher revision = better)
   score += rom.revision * 5;
 
+  // Prefer ROMs with simpler paths (fewer subdirectories = closer to root)
+  // This prefers root-level ROMs over ones buried in subfolders
+  const pathDepth = (rom.relativePath.match(/[/\\]/g) || []).length;
+  score -= pathDepth * 1; // Small penalty per directory level
+
+  // Prefer proper No-Intro naming (region in filename) over console identifiers like (gb), (nes)
+  // ROMs with proper region tags (USA, Europe, etc.) in filename are more reliable
+  if (rom.regions.length > 0) {
+    const filenameHasRegion = rom.regions.some((r) => 
+      rom.filename.toLowerCase().includes(r.toLowerCase())
+    );
+    if (filenameHasRegion) {
+      score += 5; // Bonus for proper naming convention with region in filename
+    }
+  }
+
   // Penalize unwanted regions
   const ignoreRegions = config.ignoreRegions.map((r) => r.toLowerCase());
   for (const region of rom.regions) {
