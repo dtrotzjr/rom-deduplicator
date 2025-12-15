@@ -5,4 +5,4 @@ dist/
 
 config.json
 
-dedup-report.txt
+dedup-report*.txt
