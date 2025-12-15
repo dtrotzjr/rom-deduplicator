@@ -1,0 +1,61 @@
+{
+  "inputFolder": "/path/to/your/roms",
+  "outputFolder": "/path/to/output/roms",
+  "systems": "all",
+  "preferredRegions": [
+    "USA",
+    "World",
+    "Europe",
+    "Australia"
+  ],
+  "preferredLanguages": [
+    "En"
+  ],
+  "ignoreRegions": [
+    "Brazil",
+    "China",
+    "France",
+    "Germany",
+    "Italy",
+    "Japan",
+    "Korea",
+    "Portugal",
+    "Russia",
+    "Spain",
+    "Sweden",
+    "Taiwan"
+  ],
+  "ignoreLanguages": [
+    "Br",
+    "Cn",
+    "De",
+    "Es",
+    "Fr",
+    "It",
+    "Ja",
+    "Ko",
+    "Pt",
+    "Ru",
+    "Sv",
+    "Zh"
+  ],
+  "mediaTypes": [
+    "images",
+    "videos"
+  ],
+  "reportFile": "./dedup-report.txt",
+  "dryRun": true,
+  "screenScraper": {
+    "enabled": false,
+    "devId": "your-dev-id",
+    "devPassword": "your-dev-password",
+    "userId": "your-screenscraper-username",
+    "userPassword": "your-screenscraper-password",
+    "downloadMedia": true,
+    "mediaTypes": [
+      "screenshot",
+      "box2d",
+      "video"
+    ]
+  }
+}
