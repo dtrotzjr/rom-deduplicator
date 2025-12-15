@@ -12,11 +12,86 @@ import type { ScreenScraperConfig, GameMetadata, SSMediaType } from "./types.js"
 /** Base URL for ScreenScraper API */
 const API_BASE = "https://api.screenscraper.fr/api2";
 
-/** Rate limit delay between API calls (ms) */
-const RATE_LIMIT_DELAY = 1200;
+/** Quota and rate limiting state */
+interface QuotaState {
+  /** Maximum requests allowed per day */
+  maxRequestsPerDay: number;
+  /** Requests made today */
+  requestsToday: number;
+  /** Maximum concurrent threads allowed */
+  maxThreads: number;
+  /** Current active requests */
+  activeRequests: number;
+  /** Minimum delay between requests (ms) - based on user level */
+  minDelay: number;
+  /** Last API call timestamp */
+  lastApiCall: number;
+  /** User level (0=guest, 1=member, 2=contributor, etc.) */
+  userLevel: number;
+  /** Whether quota has been initialized from API response */
+  initialized: boolean;
+}
 
-/** Last API call timestamp for rate limiting */
-let lastApiCall = 0;
+/** Default quota state (conservative for unregistered users) */
+const quotaState: QuotaState = {
+  maxRequestsPerDay: 50,      // Very conservative default
+  requestsToday: 0,
+  maxThreads: 1,              // Single thread for guests
+  activeRequests: 0,
+  minDelay: 1200,             // Conservative 1.2s for guests
+  lastApiCall: 0,
+  userLevel: 0,
+  initialized: false,
+};
+
+/** Queue for pending requests when at thread limit */
+const requestQueue: Array<() => void> = [];
+
+/**
+ * Get current quota state (for external monitoring)
+ */
+export function getQuotaState(): Readonly<QuotaState> {
+  return { ...quotaState };
+}
+
+/**
+ * Check if we're close to or at the daily limit
+ */
+export function isNearQuotaLimit(buffer: number = 10): boolean {
+  return quotaState.requestsToday >= quotaState.maxRequestsPerDay - buffer;
+}
+
+/**
+ * Get remaining requests for today
+ */
+export function getRemainingRequests(): number {
+  return Math.max(0, quotaState.maxRequestsPerDay - quotaState.requestsToday);
+}
+
+/**
+ * Get a human-readable quota status string
+ */
+export function getQuotaStatusString(): string {
+  const remaining = getRemainingRequests();
+  const threads = quotaState.maxThreads;
+  const delay = quotaState.minDelay;
+  const level = quotaState.userLevel;
+  
+  const levelNames = ["Guest", "Member", "Contributor", "Active Contributor", "Super Contributor", "VIP"];
+  const levelName = levelNames[level] || `Level ${level}`;
+  
+  return `ScreenScraper: ${levelName} | ${remaining}/${quotaState.maxRequestsPerDay} requests remaining | ${threads} thread(s) | ${delay}ms delay`;
+}
+
+/**
+ * Reset quota state (for testing or new session)
+ */
+export function resetQuotaState(): void {
+  quotaState.initialized = false;
+  quotaState.activeRequests = 0;
+  quotaState.lastApiCall = 0;
+  requestQueue.length = 0;
+}
 
 /** System name to ScreenScraper system ID mapping */
 const SYSTEM_ID_MAP: Record<string, number> = {
@@ -121,15 +196,93 @@ export async function calculateHashes(filePath: string): Promise<{ md5: string; 
 }
 
 /**
+ * Update quota state from API response
+ */
+function updateQuotaFromResponse(data: any): void {
+  // ScreenScraper returns user info in the response
+  const ssuser = data?.response?.ssuser;
+  if (!ssuser) return;
+
+  // Update quota state from response
+  if (ssuser.maxrequestsperday !== undefined) {
+    quotaState.maxRequestsPerDay = parseInt(ssuser.maxrequestsperday, 10) || quotaState.maxRequestsPerDay;
+  }
+  if (ssuser.requeststoday !== undefined) {
+    quotaState.requestsToday = parseInt(ssuser.requeststoday, 10) || 0;
+  }
+  if (ssuser.maxthreads !== undefined) {
+    quotaState.maxThreads = parseInt(ssuser.maxthreads, 10) || 1;
+  }
+  if (ssuser.niveau !== undefined) {
+    quotaState.userLevel = parseInt(ssuser.niveau, 10) || 0;
+  }
+
+  // Adjust rate limit based on user level and thread count
+  // Higher level users can make faster requests
+  if (quotaState.maxThreads >= 4) {
+    quotaState.minDelay = 100;   // VIP/high donors - very fast
+  } else if (quotaState.maxThreads >= 2) {
+    quotaState.minDelay = 300;   // Donors - fast
+  } else if (quotaState.userLevel >= 1) {
+    quotaState.minDelay = 500;   // Registered members
+  } else {
+    quotaState.minDelay = 1200;  // Guests - conservative
+  }
+
+  quotaState.initialized = true;
+}
+
+/**
+ * Wait for a request slot (respects thread limits)
+ */
+async function acquireRequestSlot(): Promise<void> {
+  // If under thread limit, proceed
+  if (quotaState.activeRequests < quotaState.maxThreads) {
+    quotaState.activeRequests++;
+    return;
+  }
+
+  // Wait for a slot to free up
+  return new Promise((resolve) => {
+    requestQueue.push(() => {
+      quotaState.activeRequests++;
+      resolve();
+    });
+  });
+}
+
+/**
+ * Release a request slot
+ */
+function releaseRequestSlot(): void {
+  quotaState.activeRequests--;
+  
+  // Process next queued request if any
+  const next = requestQueue.shift();
+  if (next) {
+    next();
+  }
+}
+
+/**
  * Enforce rate limiting between API calls
  */
 async function rateLimit(): Promise<void> {
-  const now = Date.now();
-  const elapsed = now - lastApiCall;
-  if (elapsed < RATE_LIMIT_DELAY) {
-    await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_DELAY - elapsed));
+  // Check quota before making request
+  if (isNearQuotaLimit(5)) {
+    console.warn(`ScreenScraper: Near daily quota limit (${quotaState.requestsToday}/${quotaState.maxRequestsPerDay})`);
   }
-  lastApiCall = Date.now();
+
+  // Wait for request slot (thread limiting)
+  await acquireRequestSlot();
+
+  // Enforce minimum delay between requests
+  const now = Date.now();
+  const elapsed = now - quotaState.lastApiCall;
+  if (elapsed < quotaState.minDelay) {
+    await new Promise((resolve) => setTimeout(resolve, quotaState.minDelay - elapsed));
+  }
+  quotaState.lastApiCall = Date.now();
 }
 
 /**
@@ -310,6 +463,12 @@ export async function lookupByHash(
   romSize: number,
   romFileName: string
 ): Promise<{ metadata: GameMetadata; game: SSGame } | null> {
+  // Check if we're at quota limit
+  if (getRemainingRequests() <= 0) {
+    console.warn("ScreenScraper: Daily quota exhausted, skipping lookup");
+    return null;
+  }
+
   await rateLimit();
 
   const url = buildApiUrl("jeuInfos.php", config, {
@@ -324,14 +483,25 @@ export async function lookupByHash(
     const response = await fetch(url);
     
     if (!response.ok) {
-      if (response.status === 404 || response.status === 430) {
-        // Game not found or too many requests
+      releaseRequestSlot();
+      if (response.status === 404) {
+        // Game not found
+        return null;
+      }
+      if (response.status === 430 || response.status === 429) {
+        // Too many requests - increase delay
+        quotaState.minDelay = Math.min(quotaState.minDelay * 2, 5000);
+        console.warn(`ScreenScraper: Rate limited, increasing delay to ${quotaState.minDelay}ms`);
         return null;
       }
       throw new Error(`ScreenScraper API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json() as SSGameResponse;
+    
+    // Update quota state from response
+    updateQuotaFromResponse(data);
+    releaseRequestSlot();
     
     if (data.error || !data.response?.jeu) {
       return null;
@@ -342,6 +512,7 @@ export async function lookupByHash(
     
     return { metadata, game };
   } catch (error) {
+    releaseRequestSlot();
     // Network error or parsing error - return null to allow fallback
     console.error(`ScreenScraper lookup error: ${(error as Error).message}`);
     return null;
@@ -356,6 +527,11 @@ export async function lookupByName(
   systemId: number,
   gameName: string
 ): Promise<{ metadata: GameMetadata; game: SSGame } | null> {
+  // Check if we're at quota limit
+  if (getRemainingRequests() <= 0) {
+    return null;
+  }
+
   await rateLimit();
 
   // Clean up game name for search
@@ -374,13 +550,22 @@ export async function lookupByName(
     const response = await fetch(url);
     
     if (!response.ok) {
-      if (response.status === 404 || response.status === 430) {
+      releaseRequestSlot();
+      if (response.status === 404) {
+        return null;
+      }
+      if (response.status === 430 || response.status === 429) {
+        quotaState.minDelay = Math.min(quotaState.minDelay * 2, 5000);
         return null;
       }
       throw new Error(`ScreenScraper API error: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json() as { response?: { jeux?: Array<{ id: string }> } };
+    const data = await response.json() as { response?: { ssuser?: any; jeux?: Array<{ id: string }> } };
+    
+    // Update quota from response
+    updateQuotaFromResponse(data);
+    releaseRequestSlot();
     
     // Search returns a list, get the first match
     const games = data.response?.jeux;
@@ -392,6 +577,7 @@ export async function lookupByName(
     const gameId = games[0].id;
     return await lookupById(config, gameId);
   } catch (error) {
+    releaseRequestSlot();
     console.error(`ScreenScraper search error: ${(error as Error).message}`);
     return null;
   }
@@ -404,6 +590,11 @@ async function lookupById(
   config: ScreenScraperConfig,
   gameId: string
 ): Promise<{ metadata: GameMetadata; game: SSGame } | null> {
+  // Check if we're at quota limit
+  if (getRemainingRequests() <= 0) {
+    return null;
+  }
+
   await rateLimit();
 
   const url = buildApiUrl("jeuInfos.php", config, {
@@ -414,10 +605,18 @@ async function lookupById(
     const response = await fetch(url);
     
     if (!response.ok) {
+      releaseRequestSlot();
+      if (response.status === 430 || response.status === 429) {
+        quotaState.minDelay = Math.min(quotaState.minDelay * 2, 5000);
+      }
       return null;
     }
 
     const data = await response.json() as SSGameResponse;
+    
+    // Update quota from response
+    updateQuotaFromResponse(data);
+    releaseRequestSlot();
     
     if (data.error || !data.response?.jeu) {
       return null;
@@ -428,6 +627,7 @@ async function lookupById(
     
     return { metadata, game };
   } catch (error) {
+    releaseRequestSlot();
     return null;
   }
 }
@@ -469,6 +669,56 @@ function getMediaExtension(url: string, format?: string): string {
   }
   const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
   return match ? `.${match[1].toLowerCase()}` : ".png";
+}
+
+/**
+ * Batch process multiple ROMs in parallel (respecting thread limits)
+ */
+export async function fetchGameDataBatch(
+  config: ScreenScraperConfig,
+  systemName: string,
+  roms: Array<{ romPath: string; romFileName: string }>,
+  mediaOutputDir: string,
+  onProgress?: (completed: number, total: number, found: number) => void
+): Promise<Map<string, { metadata: GameMetadata | null; downloadedMedia: { type: SSMediaType; path: string }[] }>> {
+  const results = new Map<string, { metadata: GameMetadata | null; downloadedMedia: { type: SSMediaType; path: string }[] }>();
+  
+  let completed = 0;
+  let found = 0;
+
+  // Process ROMs in parallel batches based on thread limit
+  const processBatch = async (batch: typeof roms) => {
+    const promises = batch.map(async ({ romPath, romFileName }) => {
+      const result = await fetchGameData(config, systemName, romPath, romFileName, mediaOutputDir);
+      
+      completed++;
+      if (result.metadata) found++;
+      
+      if (onProgress) {
+        onProgress(completed, roms.length, found);
+      }
+      
+      results.set(romFileName, result);
+      return result;
+    });
+    
+    await Promise.all(promises);
+  };
+
+  // Process in batches of maxThreads size
+  const batchSize = Math.max(1, quotaState.maxThreads);
+  for (let i = 0; i < roms.length; i += batchSize) {
+    // Check quota before each batch
+    if (getRemainingRequests() <= 0) {
+      console.warn(`ScreenScraper: Stopping batch - daily quota exhausted (${completed}/${roms.length} processed)`);
+      break;
+    }
+    
+    const batch = roms.slice(i, i + batchSize);
+    await processBatch(batch);
+  }
+
+  return results;
 }
 
 /**
@@ -516,6 +766,11 @@ export async function fetchGameData(
     hashes.size,
     romFileName
   );
+
+  // Log quota status after first API call (when initialized)
+  if (quotaState.initialized && quotaState.requestsToday === 1) {
+    console.log(`  ${getQuotaStatusString()}`);
+  }
 
   // Fall back to name search
   if (!gameResult) {

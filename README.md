@@ -1,22 +1,48 @@
 # ROM Deduplicator
-Cursor Request ID: ca95f139-0c02-4583-bd77-8d2460141104
 
 A TypeScript Node.js CLI tool that identifies duplicate ROMs across systems, keeps preferred regional/language versions, organizes non-preferred versions into regional subfolders, and generates EmulationStation-compatible gamelist.xml files with preserved metadata.
 
 ## Features
 
-- **Smart Deduplication**: Uses gamelist.xml game IDs when available, falls back to fuzzy name matching
-- **ScreenScraper Integration**: Optionally fetch metadata for games missing from gamelist.xml
+- **Smart Deduplication**: Uses gamelist.xml game IDs and file hashes when available, falls back to fuzzy name matching
+- **ScreenScraper Integration**: Optionally fetch metadata for games missing from gamelist.xml (with quota tracking)
 - **Region/Language Preferences**: Configurable priority for USA, Europe, English, etc.
+- **Comprehensive Region Detection**: Supports No-Intro, MAME/arcade abbreviations, and gamelist metadata
 - **Organized Output**: 
   - Preferred versions in main folder
   - Non-preferred regions in `regional/[region]/` subfolders
   - Prototypes/betas in `prototypes/` subfolder
+  - Hacks/bootlegs in `hacks/` subfolder
   - Collections preserved in `collections/` subfolder
 - **Media Handling**: Copies images, videos, and manuals alongside ROMs
 - **Metadata Preservation**: Generates new gamelist.xml with original metadata
 - **Dry Run Mode**: Preview changes before copying files
 - **Detailed Reports**: Output to console and/or file
+
+## Prerequisites: Scraping Your ROMs
+
+**Before using this tool**, your ROM collection should have `gamelist.xml` files with metadata. The deduplicator uses game IDs and names from these files to accurately identify duplicates.
+
+### Recommended: Use Skraper
+
+We strongly recommend using [Skraper](https://www.skraper.net/) to scrape your ROM collection first:
+
+1. **Download Skraper** from https://www.skraper.net/
+2. **Create a ScreenScraper account** at https://www.screenscraper.fr/ (free)
+3. **Configure Skraper** to point to your input ROM folder
+4. **Scrape all systems** - Skraper will:
+   - Identify games by file hash (very accurate)
+   - Download metadata (descriptions, ratings, release dates)
+   - Download media (screenshots, box art, videos)
+   - Generate `gamelist.xml` files for each system
+
+**Why Skraper?**
+- Much faster than API lookups (bulk processing with resume support)
+- Better hash matching with their database
+- GUI interface for easy configuration
+- Respects ScreenScraper rate limits automatically
+
+Once your collection is scraped, the ROM Deduplicator can use the metadata for accurate deduplication.
 
 ## Installation
 
@@ -93,6 +119,8 @@ Create a `config.json` file:
 
 ### ScreenScraper Configuration (Optional)
 
+> **💡 Tip:** For initial scraping, use [Skraper](https://www.skraper.net/) instead (see Prerequisites above). The built-in ScreenScraper integration is best for filling in gaps after a Skraper run.
+
 If ROMs are missing from your gamelist.xml, you can enable ScreenScraper API integration to fetch metadata automatically. This requires a [ScreenScraper](https://www.screenscraper.fr/) account and developer credentials.
 
 ```json
@@ -126,7 +154,23 @@ If ROMs are missing from your gamelist.xml, you can enable ScreenScraper API int
 4. Fetched metadata is used for deduplication and included in output gamelist.xml
 5. If `downloadMedia` is enabled, images/videos are downloaded to the media folder
 
-**Note:** ScreenScraper has rate limits. The tool automatically enforces delays between API calls. Large collections may take significant time to process.
+**Quota Tracking & Rate Limiting:**
+
+The tool automatically tracks your ScreenScraper quota and adjusts request rates based on your account level:
+
+| User Level | Daily Requests | Max Threads | Request Delay |
+|------------|---------------|-------------|---------------|
+| Guest | ~50 | 1 | 1200ms |
+| Member | ~10,000 | 1 | 500ms |
+| Donor | ~20,000+ | 2 | 300ms |
+| VIP | Higher | 4+ | 100ms |
+
+The tool will:
+- Display your quota status after the first API call
+- Warn when approaching daily limits
+- Automatically stop if quota is exhausted
+- Increase delays if rate-limited (429/430 responses)
+- Process requests in parallel when multiple threads are available
 
 ## Output Structure
 
@@ -146,9 +190,12 @@ CleanRoms/
         Aladdin (Germany).zip
     prototypes/
       Batman (USA) (Proto).zip
+    hacks/
+      Super Mario World (Hack).zip
+      Street Fighter II (Pirate).zip
     collections/
-      PT-BR/
-        Game (Brazil).zip
+      Featured Games/
+        Game (USA).zip
 ```
 
 ## How It Works
@@ -156,29 +203,55 @@ CleanRoms/
 ### Deduplication Algorithm
 
 1. **Scan ROMs**: Find all ROM files in system folder
-2. **Load Metadata**: Parse gamelist.xml for game IDs and metadata
+2. **Load Metadata**: Parse gamelist.xml for game IDs, hashes, and metadata
 3. **Group by Game**: 
-   - Use game ID from gamelist.xml when available
+   - Use game ID from gamelist.xml when available (most accurate)
+   - Match by identical file hash
    - Fall back to normalized name matching
 4. **Score Each ROM**:
-   - Region priority (USA=100, World=90, Europe=80, etc.)
-   - Language priority (English=50)
+   - Region priority (USA > World > Europe > etc.)
+   - Language priority (English preferred)
    - Revision bonus (Rev 2 > Rev 1 > base)
    - Multi-region bonus
+   - Proper naming bonus (files with region in filename preferred)
+   - Path simplicity (root-level files slightly preferred)
 5. **Select Winner**: Highest scoring ROM goes to main folder
 6. **Categorize Others**:
    - Non-preferred regions → regional subfolder
    - Prototypes/betas → prototypes subfolder
+   - Hacks/bootlegs/pirates → hacks subfolder
    - Pure duplicates → not copied
 
 ### Supported Naming Conventions
 
-The tool parses No-Intro naming convention:
+The tool parses multiple naming conventions:
+
+**No-Intro Standard:**
 - `Game Name (USA).zip`
 - `Game Name (Europe) (En,Fr,De).zip`
 - `Game Name (Japan) (Rev 1).zip`
 - `Game Name (USA) (Proto).zip`
 - `Game Name (Europe) (SGB Enhanced).zip`
+
+**MAME/Arcade:**
+- `Game Name (World 900227).zip` (region + date)
+- `Game Name (Euro 971017).zip` (region abbreviation + date)
+- `Game Name (USA, set 1).zip`
+
+**Gamelist Metadata:**
+- `Star Wars [US]` (region in brackets)
+- `Game Name (Chinese version)` (localized versions)
+
+**Detected Tags:**
+- Prototypes: `(Proto)`, `(Beta)`, `(Demo)`, `(Sample)`, `(Preview)`
+- Hacks: `(Hack)`, `(Pirate)`, `(Bootleg)`, `(Trained)`, `(Cracked)`
+- Revisions: `(Rev 1)`, `(Rev A)`, `(v1.1)`
+
+**Supported Region Formats:**
+- Full names: USA, Europe, Japan, World, Australia, France, Germany, etc.
+- MAME abbreviations: Euro, Jpn, Kor, Asi, Aus, Bra, Chi, Fra, Ger, etc.
+- Short codes: US, EU, JP, J, U, E, W
+- Phrases: "Chinese version" → China, "PT-BR" → Brazil
 
 ## Example Output
 
@@ -192,12 +265,13 @@ System: gbc
   Loaded 2,099 entries from gamelist.xml
 
   KEEP (main folder): 613
-  REGIONAL (subfolders): 578
-    Japan: 482
+  REGIONAL (subfolders): 528
+    Japan: 432
     Germany: 42
     France: 29
     ...
   PROTOTYPES: 65
+  HACKS: 50
   COLLECTIONS: 56
   DUPLICATES REMOVED: 791
 
