@@ -117,6 +117,8 @@ Create a `config.json` file:
 | `dryRun` | boolean | If true, simulate without copying |
 | `screenScraper` | object | Optional ScreenScraper API configuration |
 
+> **Note:** Region and language values are **case-insensitive**. You can use `"USA"`, `"usa"`, or `"Usa"` interchangeably. The full list of supported regions and languages can be found in [`src/parser.ts`](src/parser.ts) (see `KNOWN_REGIONS` and `KNOWN_LANGUAGES` constants).
+
 ### ScreenScraper Configuration (Optional)
 
 > **💡 Tip:** For initial scraping, use [Skraper](https://www.skraper.net/) instead (see Prerequisites above). The built-in ScreenScraper integration is best for filling in gaps after a Skraper run.
