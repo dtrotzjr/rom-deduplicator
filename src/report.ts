@@ -5,7 +5,7 @@
 
 import fs from "fs/promises";
 import path from "path";
-import type { Config, RomDestination, SystemStats, SizeStats } from "./types.js";
+import type { Config, RomDestination, SystemStats, SizeStats, ScreenScraperStats } from "./types.js";
 import { formatBytes } from "./fileOps.js";
 
 /** Report writer interface */
@@ -453,4 +453,52 @@ export function writeSystemBreakdown(
         `Removed: ${stats.duplicatesRemoved.toString().padStart(5)}`
     );
   }
+}
+
+/**
+ * Write ScreenScraper statistics
+ */
+export function writeScreenScraperStats(
+  writer: ReportWriter,
+  stats: ScreenScraperStats
+): void {
+  writer.writeLine("");
+  writer.writeLine("=".repeat(60));
+  writer.writeLine("SCREENSCRAPER STATISTICS");
+  writer.writeLine("=".repeat(60));
+  writer.writeLine("");
+
+  if (!stats.enabled) {
+    writer.writeLine("ScreenScraper: Disabled");
+    return;
+  }
+
+  // User level and account info
+  writer.writeLine(`Account Level: ${stats.userLevelName}`);
+  writer.writeLine(`Max Threads: ${stats.maxThreads}`);
+  writer.writeLine("");
+
+  // Lookup statistics
+  writer.writeLine("API Usage:");
+  writer.writeLine(`  Lookups attempted: ${formatNumber(stats.lookupsAttempted)}`);
+  writer.writeLine(`  Lookups successful: ${formatNumber(stats.lookupsSuccessful)}`);
+  
+  const successRate = stats.lookupsAttempted > 0
+    ? ((stats.lookupsSuccessful / stats.lookupsAttempted) * 100).toFixed(1)
+    : "0";
+  writer.writeLine(`  Success rate: ${successRate}%`);
+  writer.writeLine("");
+
+  // Media downloads
+  writer.writeLine(`  Media files downloaded: ${formatNumber(stats.mediaDownloaded)}`);
+  writer.writeLine("");
+
+  // Quota information
+  writer.writeLine("Daily Quota:");
+  const remaining = Math.max(0, stats.maxRequestsPerDay - stats.requestsUsed);
+  const usedPercent = stats.maxRequestsPerDay > 0
+    ? ((stats.requestsUsed / stats.maxRequestsPerDay) * 100).toFixed(1)
+    : "0";
+  writer.writeLine(`  Requests used: ${formatNumber(stats.requestsUsed)} / ${formatNumber(stats.maxRequestsPerDay)} (${usedPercent}%)`);
+  writer.writeLine(`  Requests remaining: ${formatNumber(remaining)}`);
 }

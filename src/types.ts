@@ -213,3 +213,25 @@ export interface Gamelist {
   provider?: GamelistProvider;
   games: GameMetadata[];
 }
+
+/** ScreenScraper usage statistics */
+export interface ScreenScraperStats {
+  /** Whether ScreenScraper was enabled */
+  enabled: boolean;
+  /** Total ROMs looked up */
+  lookupsAttempted: number;
+  /** Successful lookups (metadata found) */
+  lookupsSuccessful: number;
+  /** Total media files downloaded */
+  mediaDownloaded: number;
+  /** User level (0=guest, 1=member, etc.) */
+  userLevel: number;
+  /** Level name (Guest, Member, etc.) */
+  userLevelName: string;
+  /** Maximum requests allowed per day */
+  maxRequestsPerDay: number;
+  /** Requests used today */
+  requestsUsed: number;
+  /** Maximum concurrent threads allowed */
+  maxThreads: number;
+}

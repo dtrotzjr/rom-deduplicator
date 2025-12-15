@@ -10,7 +10,7 @@ import { loadConfig, applyOverrides } from "./config.js";
 import { parseRomFilename, isRomFile } from "./parser.js";
 import { parseGamelist, buildGamelistLookup, findMetadata, generateGamelist } from "./gamelist.js";
 import { deduplicateSystem } from "./deduplicator.js";
-import { fetchGameData, getSystemId } from "./screenscraper.js";
+import { fetchGameData, getSystemId, getQuotaState } from "./screenscraper.js";
 import { 
   scanSystemFolder, 
   getSystemFolders, 
@@ -29,10 +29,18 @@ import {
   writeFinalSummary,
   writeSystemBreakdown,
   writeSizeSummary,
+  writeScreenScraperStats,
 } from "./report.js";
-import type { Config, RomEntry, SystemStats, RomDestination } from "./types.js";
+import type { Config, RomEntry, SystemStats, RomDestination, ScreenScraperStats } from "./types.js";
 
 const VERSION = "1.0.0";
+
+/** ScreenScraper stats for a single system */
+interface SystemSSStats {
+  lookupsAttempted: number;
+  lookupsSuccessful: number;
+  mediaDownloaded: number;
+}
 
 /**
  * Process a single system
@@ -43,7 +51,7 @@ async function processSystem(
   outputFolder: string,
   config: Config,
   writer: ReturnType<typeof createReportWriter>
-): Promise<{ stats: SystemStats; destinations: RomDestination[] }> {
+): Promise<{ stats: SystemStats; destinations: RomDestination[]; ssStats: SystemSSStats }> {
   const inputSystemFolder = path.join(inputFolder, systemName);
   const outputSystemFolder = path.join(outputFolder, systemName);
 
@@ -71,6 +79,7 @@ async function processSystem(
         outputSize: emptySizeStats(),
       },
       destinations: [],
+      ssStats: { lookupsAttempted: 0, lookupsSuccessful: 0, mediaDownloaded: 0 },
     };
   }
 
@@ -128,12 +137,16 @@ async function processSystem(
     }
   }
 
+  // Track ScreenScraper stats for this system
+  let ssLookupsAttempted = 0;
+  let ssLookupsSuccessful = 0;
+  let ssMediaDownloaded = 0;
+
   // Fetch metadata from ScreenScraper for ROMs missing from gamelist.xml
   if (ssEnabled && missingMetadataRoms.length > 0) {
     writer.writeLine(`  Looking up ${missingMetadataRoms.length} ROMs on ScreenScraper...`);
     
-    let found = 0;
-    let mediaDownloaded = 0;
+    ssLookupsAttempted = missingMetadataRoms.length;
     
     for (let i = 0; i < missingMetadataRoms.length; i++) {
       const { rom, entry } = missingMetadataRoms[i];
@@ -157,10 +170,10 @@ async function processSystem(
           // Update the ROM entry with fetched metadata
           entry.metadata = result.metadata;
           entry.gamelistId = result.metadata.id;
-          found++;
+          ssLookupsSuccessful++;
           
           if (result.downloadedMedia.length > 0) {
-            mediaDownloaded += result.downloadedMedia.length;
+            ssMediaDownloaded += result.downloadedMedia.length;
           }
         }
       } catch (error) {
@@ -169,7 +182,7 @@ async function processSystem(
     }
     
     writer.writeLine(""); // New line after progress
-    writer.writeLine(`  ScreenScraper: Found ${found}/${missingMetadataRoms.length} games, downloaded ${mediaDownloaded} media files`);
+    writer.writeLine(`  ScreenScraper: Found ${ssLookupsSuccessful}/${ssLookupsAttempted} games, downloaded ${ssMediaDownloaded} media files`);
   }
 
   // Deduplicate
@@ -230,7 +243,15 @@ async function processSystem(
     writer.writeLine(`  Generated gamelist.xml`);
   }
 
-  return { stats: systemStats, destinations };
+  return { 
+    stats: systemStats, 
+    destinations, 
+    ssStats: { 
+      lookupsAttempted: ssLookupsAttempted, 
+      lookupsSuccessful: ssLookupsSuccessful, 
+      mediaDownloaded: ssMediaDownloaded 
+    } 
+  };
 }
 
 /**
@@ -300,10 +321,11 @@ async function main(): Promise<void> {
 
     // Process each system
     const allStats: SystemStats[] = [];
+    let totalSSStats = { lookupsAttempted: 0, lookupsSuccessful: 0, mediaDownloaded: 0 };
 
     for (const system of systems) {
       try {
-        const { stats } = await processSystem(
+        const { stats, ssStats } = await processSystem(
           system,
           config.inputFolder,
           config.outputFolder,
@@ -311,6 +333,11 @@ async function main(): Promise<void> {
           writer
         );
         allStats.push(stats);
+        
+        // Aggregate ScreenScraper stats
+        totalSSStats.lookupsAttempted += ssStats.lookupsAttempted;
+        totalSSStats.lookupsSuccessful += ssStats.lookupsSuccessful;
+        totalSSStats.mediaDownloaded += ssStats.mediaDownloaded;
       } catch (error) {
         writer.writeLine(`  ERROR processing ${system}: ${(error as Error).message}`);
       }
@@ -321,6 +348,24 @@ async function main(): Promise<void> {
     // Write final summary
     writeFinalSummary(writer, allStats, config);
     writeSystemBreakdown(writer, allStats);
+
+    // Write ScreenScraper stats if enabled
+    if (config.screenScraper?.enabled) {
+      const quotaState = getQuotaState();
+      const levelNames = ["Guest", "Member", "Contributor", "Active Contributor", "Super Contributor", "VIP"];
+      const ssStats: ScreenScraperStats = {
+        enabled: true,
+        lookupsAttempted: totalSSStats.lookupsAttempted,
+        lookupsSuccessful: totalSSStats.lookupsSuccessful,
+        mediaDownloaded: totalSSStats.mediaDownloaded,
+        userLevel: quotaState.userLevel,
+        userLevelName: levelNames[quotaState.userLevel] || `Level ${quotaState.userLevel}`,
+        maxRequestsPerDay: quotaState.maxRequestsPerDay,
+        requestsUsed: quotaState.requestsToday,
+        maxThreads: quotaState.maxThreads,
+      };
+      writeScreenScraperStats(writer, ssStats);
+    }
 
     // Flush report
     await writer.flush();
